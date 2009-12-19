@@ -3,5 +3,6 @@
 # Track a branch and check it out with as little typing as possible
 #
 
-echo "git-cob has been renamed git-corb" >&2
-exec git corb "$@"
+echo git-cob has been renamed git-corb
+git corb $@
+

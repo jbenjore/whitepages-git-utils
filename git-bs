@@ -1,158 +1,231 @@
-#!/bin/bash
-#
-# git Branch Sync
-# Report branch status for all your tracking branches and optionally sync them
+#!/usr/bin/perl -w
 
-fetch=''    # -f|--fetch specified
-pull=''     # -p|--pull  specified
-noise=''    # -q|--quiet, -v|--verbose specified
-stat=''     # --stat or -n|--no-stat specified (only for pull)
-stash=''    # -s|--stash specified
-local=show  # -r|--remote-only specified
-# Is -q useful enough on fetch/pull?  It seems to have
-# little effect on fetch and no effect on pull?
+=head1 NAME
 
-bold="\033[1m"
-norm="\033[0m"
+git bs - Branch status
 
-function print_status() {
-    branch="$1"
-    remote=$(git config "branch.$branch.remote")
-    remote_branch=$(git config "branch.$branch.merge")
-    track="$remote/${remote_branch##*/}"
+=head1 DESCRIPTION
 
-    if [[ "/" = $track ]]; then
-        if [[ show = $local ]]; then
-            echo -e "# . $branch is only ${bold}local${norm}"
-        fi
-    elif git rev-parse "$track" 2>&1 | grep -q 'unknown revision'; then
-        echo -e "# ! $branch is tracking ${bold}non-existent${norm} remote branch $track"
-    else
-        set -- $(git rev-list "$branch..$track" | wc -l)
-        behind="$1"
-        set -- $(git rev-list "$track..$branch" | wc -l)
-        ahead="$1"
+Report branch status for all your tracking branches and optionally sync them
 
-        if [[ 0 != $behind && 0 != $ahead ]]; then
-            echo -e "# X $branch and $track have ${bold}diverged${norm} by $ahead and $behind commits"
-        elif [[ 0 != $behind ]]; then
-            echo -e "# < $branch is ${bold}behind${norm} $track by $behind commits"
-            if [[ pull = $pull ]]; then
-                echo ""
-                echo "] git checkout $branch"
-                if git checkout "$branch"; then
-                    echo "] git merge$stat $track"
-                    git merge $stat "$track"
-                else
-                    pull='error'
-                fi
-                echo ""
-            fi
-        elif [[ 0 != $ahead ]]; then
-            echo -e "# > $branch is ${bold}ahead${norm} of $track by $ahead commits"
-        else
-            echo -e "# = $branch is ${bold}current${norm} with $track"
-        fi
-    fi
+=head1 SYNOPSIS
+
+    git bs
+
+        -f --fetch
+        -p --pull
+        -q --quiet
+        -v --verbose
+        -r --remote-only
+        -n --stat --no-stat
+        -s --stash
+        -h --help
+
+=cut
+
+use strict;
+use Getopt::Long ();
+use Pod::Usage ();
+use Term::ANSIColor ();
+use Carp ();
+use vars qw( $DoRemoteOnly $DoPullme );
+
+Main( @ARGV );
+exit;
+
+sub Main {
+
+    # Command line options
+    local @ARGV = @_;
+    my $is_quiet       = 0;
+    my $is_verbose     = 0;
+    my $do_fetch       = 0;
+    $DoPullme      = 0;
+    $DoRemoteOnly = 0;
+    my $do_stat        = 0;
+    my $do_stash       = 0;
+    Getopt::Long::GetOptions(
+        help            => \ &Pod::Usage::pod2usage,
+        'q|quiet'       => sub {
+            $is_quiet = 1;
+            $is_verbose = 0;
+        },
+        'v|verbose'     => sub {
+            $is_quiet = 0;
+            $is_verbose = 1;
+        },
+
+        'f|fetch'       => \ $do_fetch,
+        'p|pullme'      => \ $DoPullme,
+        'r|remote-only' => \ $DoRemoteOnly,
+        'stat!'         => \ $do_stat,
+        'n'             => sub { $do_stat = 0 },
+        's|stash'       => \ $do_stash,
+    )
+        or Pod::Usage::pod2usage();
+
+    # Command line argument handling is done
+    if ( @ARGV ) {
+	Pod::Usage::pod2usage();
+    }
+
+    if ( $do_fetch && ! $DoPullme ) {
+        my @args;
+        if ( $is_quiet ) {
+            push @args, '-q';
+        }
+        if ( $is_verbose ) {
+            push @args, '-v';
+        }
+
+        for my $remote ( all_remotes() ) {
+	    print "] git fetch @args $remote\n";
+	    system 'git', 'fetch', @args, $remote;
+	    exit $? >> 8 if $?;
+        }
+    }
+    elsif ( $DoPullme ) {
+	print "] git fastforward -f\n";
+	system 'git', 'fastforward', '-f';
+	exit $? >> 8 if $?;
+    }
+
+
+    # Stash all edits prior to listing status
+    #
+    my $did_stash = 0;
+    if ( $do_stash ) {
+        print "\n";
+        print "] git stash save git-bs auto-stash\n";
+        my $stash_log = Run('git stash save git-bs auto-stash');
+        $did_stash = $stash_log =~ /No local changes/;
+    }
+
+
+    # Print status
+    #
+    my $current_branch = current_branch();
+    if ( $current_branch ) {
+        print "# On branch $current_branch\n";
+        print_branch_status( $current_branch );
+        print "#\n";
+    }
+    for my $branch (
+        sort
+        grep { $_ ne $current_branch }
+        local_branches()
+    ) {
+        print_branch_status( $branch );
+    }
+
+
+    # Unstash anything we stashed
+    #
+    if ( $did_stash ) {
+        print "\n";
+        print "] git stash pop\n";
+        system 'git stash pop';
+    }
 }
 
-function usage() {
-    echo "Usage: git bs [-fnpqrsv] [--stat]" >&2
-    echo "Short for: --fetch --no-stat --pull --quiet --remote-only --stash --verbose" >&2
+sub all_remotes {
+    return Run('git remote') =~ /(\S+)/g;
 }
 
-GETOPT=$(getopt -o hfnpqrsv --long fetch,no-stat,pull,quiet,remote-only,stash,verbose,stat -- "$@")
-if [[ $? != 0 ]]; then
-    usage
-    exit 1
-fi
-set -- $GETOPT
+sub current_branch {
+    my $branch = Run( 'git symbolic-ref HEAD' );
+    chomp $branch;
+    $branch =~ s{^refs/heads/}{};
+    return $branch;
+}
 
-while [[ 0 != $# ]]; do
-    case "$1" in
-        -f|--fetch)
-            fetch=fetch
-            ;;
-        -p|--pull)
-            # pull implies fetch (and we're not doing a literal pull)
-            fetch=fetch
-            pull=pull
-            ;;
-        -q|--quiet|-v|--verbose)
-            noise="$1"
-            ;;
-        -r|--remote-only)
-            local=hide
-            ;;
-        --stat|-n|--no-stat)
-            stat=" $1"
-            ;;
-        --stash|-s)
-            stash="stash"
-            ;;
-        -h)
-            usage
-            exit 0
-            ;;
-        --)
-            shift
-            if [[ 0 != $# ]]; then
-                echo "Too many arguments ($*)" >&2
-                usage
-                exit 1
-            fi
-            ;;
-        *)
-            echo "Unrecognized option ($1)??" >&2
-            usage
-            exit 1
-            ;;
-    esac
-    shift
-done
+sub print_branch_status {
+    my ( $branch ) = @_;
 
-if [[ fetch = $fetch ]]; then
-    for remote in $(git remote); do
-        echo "] git fetch$noise $remote"
-        git fetch $noise "$remote"
-        echo ''
-    done
-fi
+    my $remote        = config( "branch.$branch.remote" );
+    my $remote_branch = config( "branch.$branch.merge" );
+    $remote_branch =~ s{^.+/}{};
+    my $track = "$remote/$remote_branch";
 
-if [[ stash = $stash && pull = $pull ]]; then
-    echo ""
-    echo "] git stash save git-bs auto-stash"
-    output=$(git stash save git-bs auto-stash)
-    echo $output
-    if echo $output | grep "No local changes" >/dev/null 2>&1; then
-        stash=""
-    fi
-fi;
+    if ( ! $remote ) {
+        if ( ! $DoRemoteOnly ) {
+            print "# . $branch is only \e[1mlocal\e[0m\n";
+        }
+    }
+    elsif ( ! ref_exists( "refs/remotes/$remote/$remote_branch" ) ) {
+        print "# ! $branch is tracking \e[1mnon-existent\e[0m remote branch $track\n";
+    }
+    else {
+        my $behind = count_commits( "$branch..$track" );
+        my $ahead  = count_commits( "$track..$branch" );
 
-# Current branch
-current_branch=$(git branch | grep '*' | sed 's/ *\* *//')
-if [[ -n $current_branch && $current_branch != "(no branch)" ]]; then
-    echo "# On branch $current_branch"
+        if ( $behind && $ahead ) {
+            print "# X $branch and $track have \e[1mdiverged\e[0m by $ahead and $behind commits\n";
+        }
+        elsif ( $behind ) {
+            print "# < $branch is \e[1mbehind\e[0m $track by $behind commits\n";
+            if ( $DoPullme ) {
+                print "\n";
+                print "] git checkout $branch\n";
+		system 'git', 'corb', $branch;
+		exit $? >> 8 if $?;
+                print "\n";
+            }
+        }
+        elsif ( $ahead ) {
+            print "# > $branch is \e[1mahead\e[0m of $track by $ahead commits\n";
+        }
+        else {
+            print "# = $branch is \e[1mcurrent\e[0m with $track\n";
+        }
+    }
 
-    print_status "$current_branch"
+    return;
+}
 
-    # A blank line to separate other branches
-    echo "#"
-fi
+sub ref_exists {
+    my ( $pattern ) = @_;
 
-# The rest
-branches=$(git branch | grep -v '*')
+    my $value = Run("git for-each-ref $pattern");
+    chomp $value;
+    return $value;
+}
 
-for branch in $branches; do
-    print_status "$branch"
-done
+sub local_branches {
+    my $heads = Run( 'git for-each-ref refs/heads' );
+    return $heads =~ m{refs/heads/(\S+)$}mg;
+}
 
-if [[ -n $pull ]]; then
-    git checkout "$current_branch"
-fi
+sub count_commits {
+    my ( $ref_spec ) = @_;
+    my $rev_count = Run( "git rev-list $ref_spec | wc -l" );
+    chomp $rev_count;
+    return 0 + $rev_count;
+}
 
-if [[ stash = "$stash" && pull = "$pull" ]]; then
-    echo ""
-    echo "] git stash pop"
-    git stash pop
-fi
+
+sub config {
+    my ( $name ) = @_;
+    my $value = `git config $name`;
+    my $exit_value = $? >> 8;
+    if ( 0 == $exit_value ) {
+	chomp $value;
+	return $value;
+    }
+    elsif ( 1 == $exit_value ) {
+	# git config exits with 1 when the value doesn't exit
+	return '';
+    }
+    else {
+	Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
+    }
+}
+
+sub Run {
+    my $result = `@_`;
+    if ( $? ) {
+	my $exit_code = $? >> 8;
+	Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
+    }
+    return $result;
+}

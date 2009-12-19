@@ -1,91 +1,174 @@
-#!/bin/bash
-#
-# This will fetch and merge only the branch you're currently in, avoiding
-# fetches that you aren't interested in and possibly avoiding "non-fast-forward"
-# messages on pushes
-#
+#!/usr/bin/perl
 
-function usage() {
-    echo "Usage: git pullme [-r | --no-rebase]" >&2
+=head1 NAME
+
+git-pullme - Fetch and merge only your current branch
+
+=head1 DESCRIPTION
+
+This will fetch and merge only the branch you're currently in,
+avoiding fetches that you aren't interested in and possibly avoiding
+"non-fast-forward" messages on pushes
+
+=head1 SYNOPSIS
+
+    git pullme [-r | --no-rebase]
+
+        -r --no-rebase   - Don't rebase when merging
+
+=cut
+
+Main( @ARGV );
+exit;
+
+use 5.006;
+use strict;
+use warnings;
+use Getopt::Long ();
+use Pod::Usage ();
+use Carp ();
+
+sub Main {
+
+    # Command line options
+    local @ARGV = @_;
+    my $rebase = 1;
+    Getopt::Long::GetOptions(
+	'rebase!' => \ $rebase,
+	help => \ &Pod::Usage::pod2usage,
+    )
+      or Pod::Usage::pod2usage();
+
+    # Command line argument handling is done
+    if ( @ARGV ) {
+	Pod::Usage::pod2usage();
+    }
+
+    # Get the current branch
+    my $branch = Run( 'git symbolic-ref HEAD' );
+    chomp $branch;
+    $branch =~ s{^refs/heads/}{};
+    if ( ! $branch ) {
+	die "Not on any branch that I can find!\n";
+    }
+
+    # Get the remote
+    my $remote = config( "branch.$branch.remote" );
+    if ( ! $remote ) {
+	die qq{Your branch is not tracking a remote branch.  Consider using "git corb"\n};
+    }
+
+    # Get the tracking branch
+    my $tracking_branch = config( "branch.$branch.merge" );
+    $tracking_branch =~ s{^refs/heads/}{};
+    if ( ! $tracking_branch ) {
+        die qq{Your branch is not tracking a remote branch.  Consider using "git corb"\n};
+    }
+
+    # Fetch the branch from the remote
+    print "] git fetch $remote $tracking_branch:refs/remotes/$remote/$tracking_branch\n";
+    system qw( git fetch ), $remote,  "$tracking_branch:refs/remotes/$remote/$tracking_branch";
+    if ( $? ) {
+        my $exit_code = $? >> 1;
+        exit $exit_code;
+    }
+
+
+    # Merge!
+    my $is_behind = any_commits( "$branch..$remote/$tracking_branch" );
+    if ( $is_behind ) {
+
+        my $is_ahead  = any_commits( "$remote/$tracking_branch..$branch" );
+        if ( $is_ahead ) {
+
+            # If we are ahead and behind, we've actually diverged
+
+            # If our changes contain no merges, and we are allowed to
+            # rebase, we will do that, avoiding superfluous merges
+            my $local_merges = any_merges( "$remote/$tracking_branch..$branch" );
+
+            if ( $rebase && ! $local_merges ) {
+
+                print "Your local commits do not contain any merges, rebasing on $remote/$tracking_branch\n";
+                print "] git rebase $remote/$tracking_branch\n";
+		exec qw( git rebase ), "$remote/$tracking_branch";
+            }
+            else {
+
+                # Otherwise, we must merge
+                print "] git merge $remote/$tracking_branch\n";
+                exec qw( git merge ), "$remote/$tracking_branch";
+            }
+
+        }
+        else {
+
+            # We're only behind; do a merge
+            print "] git merge $remote/$tracking_branch\n";
+	    exec qw(git merge), "$remote/$tracking_branch";
+        }
+    }
+    else {
+
+        print "Already up-to-date\n";
+    }
+
+    return 1;
 }
 
-# Default is that we will allow a rebase
-rebase_ok=yes
+sub any_merges {
+    my ( $rev_list_spec ) = @_;
 
-GETOPT=$(getopt -u -o hr --long no-rebase -- "$@")
-if [[ $? != 0 ]]; then
-    usage
-    exit 1
-fi
-set -- $GETOPT
+    local $SIG{CHLD} = 'IGNORE';
+    my $pid = open my($fh), '-|', qw( git rev-list --parents ), $rev_list_spec;
+    if ( ! defined $pid ) {
+        Carp::croak("Can't fork: $!");
+    }
 
-while [[ 0 != $# ]]; do
-    case "$1" in
-        -r|--no-rebase)
-            rebase_ok=no
-            ;;
-        -h)
-            usage
-            exit 0
-            ;;
-        --)
-            shift
-            break
-            ;;
-        *)
-            echo "Unrecognized option ($1)??" >&2
-            usage
-            exit 1
-            ;;
-    esac
-    shift
-done
+    my $found = 0;
+  LINE:
+    while ( my $line = <$fh> ) {
+        my ( $commit, @parents ) = split ' ', $line;
+        if ( @parents > 1 ) {
+            $found = 1;
+            last LINE;
+        }
+    }
 
-ref=$(git symbolic-ref HEAD 2>/dev/null)
-branch=${ref##refs/heads/}
+    close $fh;
 
-if [[ -z $branch ]]; then
-    echo "Not on any branch that I can find!"
-    exit 1
-fi
+    return $found;
+}
 
-remote=$(git config --get "branch.$branch.remote")
-merge_ref=$(git config --get "branch.$branch.merge")
-merge=${merge_ref##refs/heads/}
+sub any_commits {
+    my ( $ref_spec ) = @_;
+    my $rev_list = Run( "git rev-list $ref_spec" );
+    chomp $rev_list;
+    return !! $rev_list;
+}
 
-if [[ -z $remote || -z $merge ]]; then
-    echo 'Your branch is not tracking a remote branch.  Consider using "git corb"'
-    exit 1
-fi
+sub config {
+    my ( $name ) = @_;
+    my $value = `git config $name`;
+    my $exit_value = $? >> 8;
+    if ( 0 == $exit_value ) {
+	chomp $value;
+	return $value;
+    }
+    elsif ( 1 == $exit_value ) {
+	# git config exits with 1 when the value doesn't exit
+	return '';
+    }
+    else {
+	Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
+    }
+}
 
-echo "] git fetch $remote $merge:refs/remotes/$remote/$merge"
-git fetch $remote $merge:refs/remotes/$remote/$merge
-echo
-
-behind=$(git rev-list "$branch..$remote/$merge" 2>/dev/null | wc -l)
-ahead=$(git rev-list "$remote/$merge..$branch" 2>/dev/null | wc -l)
-local_merges=$(git rev-list --parents "$remote/$merge..$branch" | awk 'NF > 2 {print}' | wc -l)
-
-# If we are behind the remote, we'll need to merge
-if [[ $behind -gt 0 ]]; then
-    # If we are ahead of the remote, it's a diverge
-    if [[ $ahead -gt 0 ]]; then
-        # If our changes contain no merges, and we are allowed to rebase, we will do that,
-        # avoiding superfluous merges
-        if [[ $rebase_ok = yes && $local_merges = 0 ]]; then
-            echo "Your local commits do not contain any merges, rebasing on $remote/$merge"
-            echo "] git rebase $remote/$merge"
-            git rebase "$remote/$merge"
-        # Otherwise, we must merge
-        else
-            echo "] git merge $remote/$merge"
-            git merge "$remote/$merge"
-        fi
-    # We're behind only, do a merge
-    else
-        echo "] git merge $remote/$merge"
-        git merge "$remote/$merge"
-    fi
-else
-    echo "Already up-to-date."
-fi
+sub Run {
+    my $result = `@_`;
+    if ( $? ) {
+	my $exit_code = $? >> 8;
+	Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
+    }
+    return $result;
+}

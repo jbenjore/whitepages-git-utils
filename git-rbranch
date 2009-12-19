@@ -1,152 +1,229 @@
-#!/bin/bash
-#
+#!/usr/bin/perl -w
 
-function usage() {
-    echo "Usage: git rbranch [-c] [-e] [-p] [<remote>] <branch> [<from>]"
-    echo
-    echo "If you want to create a local branch that will later track a remote"
-    echo "branch, but it does not yet exist, you can use this command instead"
-    echo "of setting up configuration manually or deleting and re-creating"
-    echo "your local branch later, after it's been pushed."
-    echo
-    echo "Args:"
-    echo "    -c         - Only create the branch, don't check it out"
-    echo "    -e         - Don't create an empty commit at the start of the branch (default"
-    echo "                 is to create such a commit)"
-    echo "    -p         - Only create the branch, don't check it out"
-    echo "    <remote>   - A remote repository, defaults to 'origin'"
-    echo "    <branch>   - The name of a remote branch"
-    echo "    <from>     - Starting point for the new branch"
+=head1 NAME
+
+git-rbranch - Create a branch with the intention of pushing remotely later
+
+=head1 DESCRIPTION
+
+If you want to create a local branch that will later track a remote
+branch, but it does not yet exist, you can use this command instead of
+setting up configuration manually or deleting and re-creating your
+local branch later, after it's been pushed.
+
+=head1 SYNOPSIS
+
+    git rbranch [-c] [-e] [-p] [<remote>] <branch> [<from>]
+
+        -c --checkout       - Check the branch out (default)
+        --no-checkout       - Don't check the branch out
+
+        -e --empty-commit   - Create an empty commit to mark the branch start (default)
+        --no-empty-commit   - Don't create the empty commit
+
+        --no-pushme         - Don't push the branch (default)
+        -p --pushme         - Push the new branch immediately
+
+        <remote>   - A remote repository, defaults to 'origin'
+        <branch>   - The name of a remote branch
+        <from>     - Starting point for the new branch
+
+=cut
+
+use strict;
+use Getopt::Long ();
+use Pod::Usage ();
+use Carp ();
+
+Main( @ARGV );
+exit;
+
+sub Main {
+
+    # Command line options
+    local @ARGV = @_;
+    my $do_checkout = 1;
+    my $do_empty_commit = 1;
+    my $do_pushme = 0;
+    Getopt::Long::GetOptions(
+	'checkout!'     => \ $do_checkout,
+        'empty-commit!' => \ $do_empty_commit,
+        'pushme!'       => \ $do_pushme,
+        help            => \ &Pod::Usage::pod2usage,
+    )
+      or Pod::Usage::pod2usage();
+
+    # Command line remote, branch, and starting commit
+    my ( $remote, $branch, $starting_commit );
+    if ( 3 == @ARGV ) {
+        $remote          = shift @ARGV;
+        $branch          = shift @ARGV;
+        $starting_commit = shift @ARGV;
+    }
+    elsif ( ( 1 == @ARGV
+              || 2 == @ARGV )
+            && $ARGV[0] =~ m{^(.+)/(.+)$} ) {
+
+        # If a remote is actually given as part of the branch, split
+        # them and use it
+        $remote          = $1;
+        $branch          = $2;
+        if ( 2 == @ARGV ) {
+            $starting_commit = $ARGV[1];
+        }
+        @ARGV = ();
+    }
+    elsif ( 2 == @ARGV ) {
+        $remote          = 'origin';
+        $branch          = shift @ARGV;
+        $starting_commit = shift @ARGV;
+    }
+    elsif ( 1 == @ARGV ) {
+        $remote = 'origin';
+        $branch = shift @ARGV;
+    }
+
+    # Command line argument handling is done
+    if ( @ARGV ) {
+	Pod::Usage::pod2usage();
+    }
+
+    if ( ! config( "remote.$remote.url" ) ) {
+        die "Unrecognized remote repository, $remote\n";
+    }
+
+    # Make the branch!
+    my $created_branch = 0;
+    my $created_branch_from;
+    if ( ref_exists( "refs/heads/$branch" ) ) {
+        print "$branch already exists, not creating.\n";
+
+        if ( ! ref_exists( "refs/remotes/$remote/$branch" ) ) {
+            print "Warning: the tracking branch $remote/$branch does not (yet) exist\n";
+        }
+
+        my $current_remote = config( "branch.$branch.remote" );
+        my $current_merge  = config( "branch.$branch.merge"  );
+
+	if ( ! $current_merge ) {
+
+            # Not tracking, set it up
+            System( qw( git config ), "branch.$branch.remote", $remote );
+	    System( qw( git config ), "branch.$branch.merge",  "refs/heads/$branch" );
+
+            print "$branch set up to track $remote/$branch\n";
+	}
+	else {
+	    if ( $current_remote eq $remote
+		 && $current_merge eq "refs/heads/$branch" ) {
+                print "$branch is already tracking $remote/$branch\n";
+	    }
+	    else {
+		die "$branch is tracking $current_remote/$current_merge instead!\n";
+	    }
+	}
+    }
+    else {
+
+        # The branch doesn't exist yet so let's create it. The below
+        # code using `branch --no-track` + the `git config ...`
+        # setting was written by Dave Olzsewski and Tye McQueen. I
+        # don't understand why the tracking setup is being handled
+        # manually.
+	if ( $starting_commit ) {
+	    print "] git branch --no-track $branch $starting_commit\n";
+	    system 'git', 'branch', '--no-track', $branch, $starting_commit;
+	    exit $? >> 8 if $?;
+	}
+	else {
+	    print "] git branch --no-track $branch\n";
+	    system 'git', 'branch', '--no-track', $branch;
+	    exit $? >> 8 if $?;
+	}
+
+        $created_branch = 1;
+
+	# Set up the tracking branch
+	System(qw( git config ), "branch.$branch.remote", $remote );
+	System(qw( git config ), "branch.$branch.merge",  "refs/heads/$branch" );
+
+	if ( $starting_commit ) {
+            $created_branch_from = $starting_commit;
+        }
+        else {
+            my $head_name = Run( 'git symbolic-ref HEAD' );
+            $head_name =~ s{^refs/heads/}{};
+            $head_name ||= 'HEAD';
+
+            $created_branch_from = $head_name;
+        }
+        print "Created branch $branch tracking $remote/$branch from $created_branch_from\n";
+    }
+
+    if ( $do_checkout ) {
+        print "] git checkout $branch\n";
+        system 'git', 'checkout', $branch;
+	exit $? >> 8 if $?;
+    }
+
+    if ( $created_branch ) {
+        if ( $do_empty_commit ) {
+            system 'git', 'commit', '--allow-empty', '-m',
+                   "Created branch $branch from $created_branch_from";
+	    exit $? >> 8 if $?;
+        }
+
+        if ( $do_pushme ) {
+	    system 'git', 'pushme';
+	    exit $? >> 8 if $?;
+        }
+    }
 }
 
-# Default values for options
-checkout=yes
-empty=yes
-push=no
+sub ref_exists {
+    my ( $pattern ) = @_;
 
-GETOPT=$(getopt -u -o hcep -- "$@")
-if [[ $? != 0 ]]; then
-    usage
-    exit 1
-fi
-set -- $GETOPT
+    my $value = Run("git for-each-ref $pattern");
+    chomp $value;
+    return !! $value;
+}
 
-while [[ 0 != $# ]]; do
-    case "$1" in
-        -c)
-            checkout=no
-            ;;
-        -e)
-            empty=no
-            ;;
-        -p)
-            push=yes
-            ;;
-        -h)
-            usage
-            exit 0
-            ;;
-        --)
-            shift
-            break
-            ;;
-        *)
-            echo "Unrecognized option ($1)??" >&2
-            usage
-            exit 1
-            ;;
-    esac
-    shift
-done
+sub config {
+    my ( $name ) = @_;
+    my $value = `git config $name`;
+    my $exit_value = $? >> 8;
+    if ( 0 == $exit_value ) {
+	chomp $value;
+	return $value;
+    }
+    elsif ( 1 == $exit_value ) {
+	# git config exits with 1 when the value doesn't exit
+	return '';
+    }
+    else {
+	Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
+    }
+}
 
+sub System {
+    system @_;
+    if ( $? ) {
+	my $exit_code = $? >> 8;
+	print qq{"@_" unexpectedly returned exit value $exit_code\n};
+	exit 1;
+    }
+    else {
+        return 1;
+    }
+}
 
-if [[ $# -lt 1 || 3 -lt $# ]]; then
-    usage
-    exit 1
-fi
-
-remote=$1; shift;
-
-# If remote is not recognized, assume origin
-if [[ -z $(git config --get "remote.$remote.url") ]]; then
-    branch=$remote
-    remote="origin"
-else
-    branch=$1; shift;
-fi
-
-# If a remote is actually given as part of the branch, split them and use it
-if [[ $(echo $branch | awk '$1 ~ /\// { print }') ]]; then
-    remote="${branch%%/*}"
-    branch="${branch##*/}"
-fi
-
-if [[ -z $(git config --get "remote.$remote.url") ]]; then
-    echo "Unrecognized remote repository, $remote." >&2
-    exit 1
-fi
-
-from=$1
-
-# Now that we have our arguments, first check to see if the branch already exists
-if [[ -n $(git for-each-ref "refs/heads/$branch") ]]; then
-    echo "$branch already exists, not creating."
-
-    if [[ -z $(git for-each-ref "refs/remotes/$remote/$branch") ]]; then
-        echo "Warning: The tracking branch $remote/$branch does not (yet) exists" >&2
-    fi
-    # It does.  Is it already tracking?
-    current_remote=$(git config --get "branch.$branch.remote")
-    current_merge=$(git config --get "branch.$branch.merge")
-
-    if [[ -z $current_merge ]]; then
-        # Not tracking, set it up
-        git config "branch.$branch.remote" "$remote"
-        git config "branch.$branch.merge" "refs/heads/$branch"
-        echo "$branch set up to track $remote/$branch"
-    else
-        if [ "$remote" = "$current_remote" -a "$current_merge" = "refs/heads/$branch" ]; then
-            echo "$branch is already tracking $remote/$branch"
-        else
-            echo "$branch is tracking $current_remote/$current_remote_head instead!"
-            exit 1
-        fi
-    fi
-else
-    # It doesn't, so let's create it
-    echo "] git branch $branch" $from
-    # Don't quote $from here because passing an empty string is an error
-    git branch --no-track "$branch" $from || exit $?
-
-    git config "branch.$branch.remote" "$remote"
-    git config "branch.$branch.merge" "refs/heads/$branch"
-    echo -n "Created branch $branch tracking $remote/$branch from "
-    if [[ -n $from ]]; then
-        where=$from
-    else
-        head=$(git symbolic-ref HEAD 2>/dev/null)
-        head=${head##refs/heads/}
-        if [[ -n $head ]]; then
-            where=$head
-        else
-            where=HEAD
-        fi
-    fi
-    echo $where
-
-    commit_message="Created branch $branch from $where"
-    created_branch=1
-fi
-
-if [[ yes = $checkout ]]; then
-    echo "] git checkout $branch"
-    git checkout "$branch"
-fi
-
-if [[ -n $created_branch && yes = $empty ]]; then
-    git commit --allow-empty -m "$commit_message"
-fi
-
-if [[ -n $created_branch && yes = $push ]]; then
-    git pushme
-fi
+sub Run {
+    my $result = `@_`;
+    if ( $? ) {
+	my $exit_code = $? >> 8;
+	Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
+    }
+    else {
+        return $result;
+    }
+}
