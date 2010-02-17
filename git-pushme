@@ -20,6 +20,8 @@ pushing branches that aren't ready.
 
 =cut
 
+Getopt::Long::Configure( 'bundling_override' );
+
 Main( @ARGV );
 exit;
 

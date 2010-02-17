@@ -29,6 +29,8 @@ use Getopt::Long ();
 use Pod::Usage ();
 use Carp ();
 
+Getopt::Long::Configure( 'bundling_override' );
+
 Main( @ARGV );
 exit;
 

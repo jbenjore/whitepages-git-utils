@@ -18,6 +18,8 @@ avoiding fetches that you aren't interested in and possibly avoiding
 
 =cut
 
+Getopt::Long::Configure( 'bundling_override' );
+
 Main( @ARGV );
 exit;
 

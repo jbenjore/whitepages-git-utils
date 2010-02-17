@@ -30,6 +30,8 @@ use Term::ANSIColor ();
 use Carp ();
 use vars qw( $DoRemoteOnly $DoPullme );
 
+Getopt::Long::Configure( 'bundling_override' );
+
 Main( @ARGV );
 exit;
 
