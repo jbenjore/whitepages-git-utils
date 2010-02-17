@@ -58,7 +58,7 @@ sub Main {
         },
 
         'f|fetch'       => \ $do_fetch,
-        'p|pullme'      => \ $DoPullme,
+        'p|pull'        => \ $DoPullme,
         'r|remote-only' => \ $DoRemoteOnly,
         'stat!'         => \ $do_stat,
         'n'             => sub { $do_stat = 0 },
