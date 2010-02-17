@@ -17,17 +17,17 @@ branch but only if the update is a simple fast-forward.
 
 =cut
 
-Getopt::Long::Configure( 'bundling_override' );
-
-Main( @ARGV );
-exit;
-
 use 5.006;
 use strict;
 use warnings;
 use Getopt::Long ();
 use Pod::Usage ();
 use Carp ();
+
+Getopt::Long::Configure( 'bundling_override' );
+
+Main( @ARGV );
+exit;
 
 sub Main {
 

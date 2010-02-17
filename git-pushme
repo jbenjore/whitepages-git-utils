@@ -20,16 +20,16 @@ pushing branches that aren't ready.
 
 =cut
 
-Getopt::Long::Configure( 'bundling_override' );
-
-Main( @ARGV );
-exit;
-
 use 5.005;
 use strict;
 use Getopt::Long ();
 use Pod::Usage ();
 use Carp ();
+
+Getopt::Long::Configure( 'bundling_override' );
+
+Main( @ARGV );
+exit;
 
 sub Main {
 
