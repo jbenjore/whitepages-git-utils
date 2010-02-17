@@ -67,9 +67,8 @@ sub Main {
         $branch = $ARGV[1];
         @ARGV = ();
     }
-
-    # Command line argument handling is done
-    if ( @ARGV ) {
+    else {
+        # Command line argument handling is done
         Pod::Usage::pod2usage();
     }
 

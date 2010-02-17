@@ -84,9 +84,8 @@ sub Main {
         $remote = 'origin';
         $branch = shift @ARGV;
     }
-
-    # Command line argument handling is done
-    if ( @ARGV ) {
+    else {
+        # Command line argument handling is done.
         Pod::Usage::pod2usage();
     }
 

@@ -66,7 +66,9 @@ sub Main {
     )
         or Pod::Usage::pod2usage();
 
-    # Command line argument handling is done
+    # Command line argument handling is done. If there are any
+    # remaining arguments, this likely means the user did something
+    # wrong.
     if ( @ARGV ) {
         Pod::Usage::pod2usage();
     }
