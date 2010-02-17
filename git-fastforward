@@ -159,3 +159,8 @@ sub Run {
     }
     return $result;
 }
+
+# Local Variables:
+# mode: cperl
+# indent-tabs-mode: nil
+# End:
