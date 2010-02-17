@@ -40,8 +40,8 @@ sub Main {
     local @ARGV = @_;
     my $do_fetch = 0;
     Getopt::Long::GetOptions(
-	fetch    => \ $do_fetch,
-	help => \ &Pod::Usage::pod2usage,
+        fetch    => \ $do_fetch,
+        help => \ &Pod::Usage::pod2usage,
     )
       or Pod::Usage::pod2usage();
 
@@ -70,13 +70,13 @@ sub Main {
 
     # Command line argument handling is done
     if ( @ARGV ) {
-	Pod::Usage::pod2usage();
+        Pod::Usage::pod2usage();
     }
 
     # Fetch the branch from the remote, if requested
     if ( $do_fetch ) {
         system 'git', 'fetch', $remote, $branch;
-	exit $? >> 8 if $?;
+        exit $? >> 8 if $?;
     }
 
     my $track_remote = config( "branch.$branch.remote" );
@@ -103,7 +103,7 @@ sub Main {
     ) {
         print "Attempting to checkout and have $branch track from $remote:\n";
         print "] git checkout -b $branch $remote/$branch\n";
-	exec 'git', 'checkout', '-b', $branch, "$remote/$branch";
+        exec 'git', 'checkout', '-b', $branch, "$remote/$branch";
     }
 
     if ( any_commits( "$remote/$branch..$branch" ) ) {
@@ -149,23 +149,23 @@ sub config {
     my $value = `git config $name`;
     my $exit_code = $? >> 8;
     if ( 0 == $exit_code ) {
-	chomp $value;
-	return $value;
+        chomp $value;
+        return $value;
     }
     elsif ( 1 == $exit_code ) {
-	# git config exits with 1 when the value doesn't exit
-	return '';
+        # git config exits with 1 when the value doesn't exit
+        return '';
     }
     else {
-	Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_code});
+        Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_code});
     }
 }
 
 sub Run {
     my $result = `@_`;
     if ( $? ) {
-	my $exit_code = $? >> 8;
-	Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
+        my $exit_code = $? >> 8;
+        Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
     }
     else {
         return $result;

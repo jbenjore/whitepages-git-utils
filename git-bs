@@ -68,7 +68,7 @@ sub Main {
 
     # Command line argument handling is done
     if ( @ARGV ) {
-	Pod::Usage::pod2usage();
+        Pod::Usage::pod2usage();
     }
 
     if ( $do_fetch && ! $DoPullme ) {
@@ -81,15 +81,15 @@ sub Main {
         }
 
         for my $remote ( all_remotes() ) {
-	    print "] git fetch @args $remote\n";
-	    system 'git', 'fetch', @args, $remote;
-	    exit $? >> 8 if $?;
+            print "] git fetch @args $remote\n";
+            system 'git', 'fetch', @args, $remote;
+            exit $? >> 8 if $?;
         }
     }
     elsif ( $DoPullme ) {
-	print "] git fastforward -f\n";
-	system 'git', 'fastforward', '-f';
-	exit $? >> 8 if $?;
+        print "] git fastforward -f\n";
+        system 'git', 'fastforward', '-f';
+        exit $? >> 8 if $?;
     }
 
 
@@ -169,8 +169,8 @@ sub print_branch_status {
             if ( $DoPullme ) {
                 print "\n";
                 print "] git checkout $branch\n";
-		system 'git', 'corb', $branch;
-		exit $? >> 8 if $?;
+                system 'git', 'corb', $branch;
+                exit $? >> 8 if $?;
                 print "\n";
             }
         }
@@ -211,23 +211,23 @@ sub config {
     my $value = `git config $name`;
     my $exit_value = $? >> 8;
     if ( 0 == $exit_value ) {
-	chomp $value;
-	return $value;
+        chomp $value;
+        return $value;
     }
     elsif ( 1 == $exit_value ) {
-	# git config exits with 1 when the value doesn't exit
-	return '';
+        # git config exits with 1 when the value doesn't exit
+        return '';
     }
     else {
-	Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
+        Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
     }
 }
 
 sub Run {
     my $result = `@_`;
     if ( $? ) {
-	my $exit_code = $? >> 8;
-	Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
+        my $exit_code = $? >> 8;
+        Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
     }
     return $result;
 }

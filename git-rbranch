@@ -48,7 +48,7 @@ sub Main {
     my $do_empty_commit = 1;
     my $do_pushme = 0;
     Getopt::Long::GetOptions(
-	'checkout!'     => \ $do_checkout,
+        'checkout!'     => \ $do_checkout,
         'empty-commit!' => \ $do_empty_commit,
         'pushme!'       => \ $do_pushme,
         help            => \ &Pod::Usage::pod2usage,
@@ -87,7 +87,7 @@ sub Main {
 
     # Command line argument handling is done
     if ( @ARGV ) {
-	Pod::Usage::pod2usage();
+        Pod::Usage::pod2usage();
     }
 
     if ( ! config( "remote.$remote.url" ) ) {
@@ -107,23 +107,23 @@ sub Main {
         my $current_remote = config( "branch.$branch.remote" );
         my $current_merge  = config( "branch.$branch.merge"  );
 
-	if ( ! $current_merge ) {
+        if ( ! $current_merge ) {
 
             # Not tracking, set it up
             System( qw( git config ), "branch.$branch.remote", $remote );
-	    System( qw( git config ), "branch.$branch.merge",  "refs/heads/$branch" );
+            System( qw( git config ), "branch.$branch.merge",  "refs/heads/$branch" );
 
             print "$branch set up to track $remote/$branch\n";
-	}
-	else {
-	    if ( $current_remote eq $remote
-		 && $current_merge eq "refs/heads/$branch" ) {
+        }
+        else {
+            if ( $current_remote eq $remote
+                 && $current_merge eq "refs/heads/$branch" ) {
                 print "$branch is already tracking $remote/$branch\n";
-	    }
-	    else {
-		die "$branch is tracking $current_remote/$current_merge instead!\n";
-	    }
-	}
+            }
+            else {
+                die "$branch is tracking $current_remote/$current_merge instead!\n";
+            }
+        }
     }
     else {
 
@@ -132,24 +132,24 @@ sub Main {
         # setting was written by Dave Olzsewski and Tye McQueen. I
         # don't understand why the tracking setup is being handled
         # manually.
-	if ( $starting_commit ) {
-	    print "] git branch --no-track $branch $starting_commit\n";
-	    system 'git', 'branch', '--no-track', $branch, $starting_commit;
-	    exit $? >> 8 if $?;
-	}
-	else {
-	    print "] git branch --no-track $branch\n";
-	    system 'git', 'branch', '--no-track', $branch;
-	    exit $? >> 8 if $?;
-	}
+        if ( $starting_commit ) {
+            print "] git branch --no-track $branch $starting_commit\n";
+            system 'git', 'branch', '--no-track', $branch, $starting_commit;
+            exit $? >> 8 if $?;
+        }
+        else {
+            print "] git branch --no-track $branch\n";
+            system 'git', 'branch', '--no-track', $branch;
+            exit $? >> 8 if $?;
+        }
 
         $created_branch = 1;
 
-	# Set up the tracking branch
-	System(qw( git config ), "branch.$branch.remote", $remote );
-	System(qw( git config ), "branch.$branch.merge",  "refs/heads/$branch" );
+        # Set up the tracking branch
+        System(qw( git config ), "branch.$branch.remote", $remote );
+        System(qw( git config ), "branch.$branch.merge",  "refs/heads/$branch" );
 
-	if ( $starting_commit ) {
+        if ( $starting_commit ) {
             $created_branch_from = $starting_commit;
         }
         else {
@@ -165,19 +165,19 @@ sub Main {
     if ( $do_checkout ) {
         print "] git checkout $branch\n";
         system 'git', 'checkout', $branch;
-	exit $? >> 8 if $?;
+        exit $? >> 8 if $?;
     }
 
     if ( $created_branch ) {
         if ( $do_empty_commit ) {
             system 'git', 'commit', '--allow-empty', '-m',
                    "Created branch $branch from $created_branch_from";
-	    exit $? >> 8 if $?;
+            exit $? >> 8 if $?;
         }
 
         if ( $do_pushme ) {
-	    system 'git', 'pushme';
-	    exit $? >> 8 if $?;
+            system 'git', 'pushme';
+            exit $? >> 8 if $?;
         }
     }
 }
@@ -195,24 +195,24 @@ sub config {
     my $value = `git config $name`;
     my $exit_value = $? >> 8;
     if ( 0 == $exit_value ) {
-	chomp $value;
-	return $value;
+        chomp $value;
+        return $value;
     }
     elsif ( 1 == $exit_value ) {
-	# git config exits with 1 when the value doesn't exit
-	return '';
+        # git config exits with 1 when the value doesn't exit
+        return '';
     }
     else {
-	Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
+        Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
     }
 }
 
 sub System {
     system @_;
     if ( $? ) {
-	my $exit_code = $? >> 8;
-	print qq{"@_" unexpectedly returned exit value $exit_code\n};
-	exit 1;
+        my $exit_code = $? >> 8;
+        print qq{"@_" unexpectedly returned exit value $exit_code\n};
+        exit 1;
     }
     else {
         return 1;
@@ -222,8 +222,8 @@ sub System {
 sub Run {
     my $result = `@_`;
     if ( $? ) {
-	my $exit_code = $? >> 8;
-	Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
+        my $exit_code = $? >> 8;
+        Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
     }
     else {
         return $result;

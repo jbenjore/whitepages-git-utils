@@ -37,20 +37,20 @@ sub Main {
     local @ARGV = @_;
     my $do_force = 0;
     Getopt::Long::GetOptions(
-	force => \ $do_force,
-	help  => \ &Pod::Usage::pod2usage,
+        force => \ $do_force,
+        help  => \ &Pod::Usage::pod2usage,
     )
       or Pod::Usage::pod2usage();
 
     # Command line commit
     my $commit;
     if ( 1 == @ARGV ) {
-	$commit = shift @ARGV;
+        $commit = shift @ARGV;
     }
 
     # Command line argument handling is done
     if ( @ARGV ) {
-	Pod::Usage::pod2usage();
+        Pod::Usage::pod2usage();
     }
 
     # Get the current branch
@@ -58,33 +58,33 @@ sub Main {
     chomp $branch;
     $branch =~ s{^refs/heads/}{};
     if ( ! $branch ) {
-	die "Not on any branch that I can find!\n";
+        die "Not on any branch that I can find!\n";
     }
 
     # Get the remote
     my $remote = config( "branch.$branch.remote" );
     if ( ! $remote ) {
-	die qq{Your branch is not tracking a remote branch.  Consider using "git corb"\n};
+        die qq{Your branch is not tracking a remote branch.  Consider using "git corb"\n};
     }
 
     my $thing_to_push;
     if ( $commit ) {
 
-	# Allow the user to specify a SHA that's not at the tip.  If
-	# they make a mistake here, they should get a non fast-forward
-	# error.
-	$thing_to_push = "${commit}:$branch";
+        # Allow the user to specify a SHA that's not at the tip.  If
+        # they make a mistake here, they should get a non fast-forward
+        # error.
+        $thing_to_push = "${commit}:$branch";
     }
     else {
 
-	# The ordinary case. Just the branch.
-	$thing_to_push = $branch;
+        # The ordinary case. Just the branch.
+        $thing_to_push = $branch;
     }
 
     # Push it!
     my @flags;
     if ( $do_force ) {
-	push @flags, '-f';
+        push @flags, '-f';
     }
     exec 'git', 'push', @flags, $remote, $thing_to_push;
 }
@@ -94,23 +94,23 @@ sub config {
     my $value = `git config $name`;
     my $exit_value = $? >> 8;
     if ( 0 == $exit_value ) {
-	chomp $value;
-	return $value;
+        chomp $value;
+        return $value;
     }
     elsif ( 1 == $exit_value ) {
-	# git config exits with 1 when the value doesn't exit
-	return '';
+        # git config exits with 1 when the value doesn't exit
+        return '';
     }
     else {
-	Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
+        Carp::croak(qq{"git config $name" unexpectedly returned exit value $exit_value});
     }
 }
 
 sub Run {
     my $result = `@_`;
     if ( $? ) {
-	my $exit_code = $? >> 8;
-	Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
+        my $exit_code = $? >> 8;
+        Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
     }
     return $result;
 }
