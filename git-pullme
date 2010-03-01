@@ -36,7 +36,7 @@ sub Main {
     local @ARGV = @_;
     my $rebase = 1;
     Getopt::Long::GetOptions(
-        'rebase!' => \ $rebase,
+        'r|rebase!' => \ $rebase,
         help => \ &Pod::Usage::pod2usage,
     )
       or Pod::Usage::pod2usage();

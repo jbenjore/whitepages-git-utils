@@ -48,10 +48,10 @@ sub Main {
     my $do_empty_commit = 1;
     my $do_pushme = 0;
     Getopt::Long::GetOptions(
-        'checkout!'     => \ $do_checkout,
-        'empty-commit!' => \ $do_empty_commit,
-        'pushme!'       => \ $do_pushme,
-        help            => \ &Pod::Usage::pod2usage,
+        'c|checkout!'     => \ $do_checkout,
+        'e|empty-commit!' => \ $do_empty_commit,
+        'p|pushme!'       => \ $do_pushme,
+        'h|help'            => \ &Pod::Usage::pod2usage,
     )
       or Pod::Usage::pod2usage();
 

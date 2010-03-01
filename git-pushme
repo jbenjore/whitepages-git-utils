@@ -37,8 +37,8 @@ sub Main {
     local @ARGV = @_;
     my $do_force = 0;
     Getopt::Long::GetOptions(
-        force => \ $do_force,
-        help  => \ &Pod::Usage::pod2usage,
+        'f|force' => \ $do_force,
+        'h|help'  => \ &Pod::Usage::pod2usage,
     )
       or Pod::Usage::pod2usage();
 

@@ -35,8 +35,8 @@ sub Main {
     local @ARGV = @_;
     my $do_fetch = 0;
     Getopt::Long::GetOptions(
-        fetch => \ $do_fetch,
-        help => \ &Pod::Usage::pod2usage,
+        'f|fetch' => \ $do_fetch,
+        'h|help'  => \ &Pod::Usage::pod2usage,
     )
       or Pod::Usage::pod2usage();
 
