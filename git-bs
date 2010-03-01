@@ -29,7 +29,7 @@ use Getopt::Long ();
 use Pod::Usage ();
 use Term::ANSIColor ();
 use Carp ();
-use vars qw( $DoRemoteOnly $DoPullme );
+use vars qw( $DoRemoteOnly $DoPullme $UseColor );
 
 Getopt::Long::Configure( 'bundling_override' );
 
@@ -48,7 +48,7 @@ sub Main {
     my $do_stat        = 0;
     my $do_stash       = 0;
     Getopt::Long::GetOptions(
-        help            => \ &Pod::Usage::pod2usage,
+        'h|help'        => \ &Pod::Usage::pod2usage,
         'q|quiet'       => sub {
             $is_quiet = 1;
             $is_verbose = 0;
@@ -243,7 +243,7 @@ sub Run {
 }
 
 sub red {
-    if ( -t STDOUT ) {
+    if ( -t STDOUT || $UseColor ) {
         return Term::ANSIColor::colored( "@_", 'red' );
     }
     else {
