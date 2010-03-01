@@ -43,8 +43,8 @@ sub Main {
     my $is_quiet       = 0;
     my $is_verbose     = 0;
     my $do_fetch       = 0;
-    $DoPullme      = 0;
-    $DoRemoteOnly = 0;
+    $DoPullme          = 0;
+    $DoRemoteOnly      = 0;
     my $do_stat        = 0;
     my $do_stash       = 0;
     Getopt::Long::GetOptions(
