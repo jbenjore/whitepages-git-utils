@@ -24,6 +24,7 @@ Report branch status for all your tracking branches and optionally sync them
 =cut
 
 use strict;
+use warnings;
 use Getopt::Long ();
 use Pod::Usage ();
 use Term::ANSIColor ();
@@ -130,6 +131,8 @@ sub Main {
         print "] git stash pop\n";
         system 'git stash pop';
     }
+
+    return;
 }
 
 sub all_remotes {
