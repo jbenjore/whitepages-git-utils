@@ -110,19 +110,22 @@ sub Main {
     # Print status
     #
     my $current_branch = current_branch();
-    if ( $current_branch ) {
+    if ( defined $current_branch ) {
         print "# On branch $current_branch\n";
         print_branch_status( $current_branch );
         print "#\n";
-    }
-    for my $branch (
-        sort
-        grep { $_ ne $current_branch }
-        local_branches()
-    ) {
-        print_branch_status( $branch );
-    }
 
+        for my $branch (
+            sort
+            grep { $_ ne $current_branch }
+            local_branches()
+        ) {
+            print_branch_status( $branch );
+        }
+    }
+    else {
+        print "# @{[ red( 'Not currently on any branch' )]}\n";
+    }
 
     # Unstash anything we stashed
     #
@@ -140,7 +143,9 @@ sub all_remotes {
 }
 
 sub current_branch {
-    my $branch = Run( 'git symbolic-ref HEAD' );
+    my $branch = `git symbolic-ref HEAD 2>/dev/null`;
+    return undef if $?;
+
     chomp $branch;
     $branch =~ s{^refs/heads/}{};
     return $branch;
@@ -235,6 +240,15 @@ sub Run {
         Carp::croak(qq{"@_" unexpectedly returned exit value $exit_code});
     }
     return $result;
+}
+
+sub red {
+    if ( -t STDOUT ) {
+        return Term::ANSIColor::colored( "@_", 'red' );
+    }
+    else {
+        return "@_";
+    }
 }
 
 # Local Variables:
