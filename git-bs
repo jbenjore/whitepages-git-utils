@@ -21,6 +21,9 @@ Report branch status for all your tracking branches and optionally sync them
         -s --stash
         -h --help
 
+        --color
+        --no-color
+
 =cut
 
 use strict;
@@ -45,6 +48,7 @@ sub Main {
     my $do_fetch       = 0;
     $DoPullme          = 0;
     $DoRemoteOnly      = 0;
+    $UseColor          = -t STDOUT;
     my $do_stat        = 0;
     my $do_stash       = 0;
     Getopt::Long::GetOptions(
@@ -57,6 +61,7 @@ sub Main {
             $is_quiet = 0;
             $is_verbose = 1;
         },
+        'color!'        => \ $UseColor,
 
         'f|fetch'       => \ $do_fetch,
         'p|pull'        => \ $DoPullme,
@@ -110,22 +115,25 @@ sub Main {
     # Print status
     #
     my $current_branch = current_branch();
+    my @other_local_branches;
     if ( defined $current_branch ) {
         print "# On branch $current_branch\n";
         print_branch_status( $current_branch );
         print "#\n";
 
-        for my $branch (
-            sort
+        @other_local_branches =
             grep { $_ ne $current_branch }
-            local_branches()
-        ) {
-            print_branch_status( $branch );
-        }
+            local_branches();
     }
     else {
         print "# @{[ red( 'Not currently on any branch' )]}\n";
+        @other_local_branches =
+            local_branches();
     }
+    for my $branch ( sort @other_local_branches ) {
+        print_branch_status( $branch );
+    }
+
 
     # Unstash anything we stashed
     #
@@ -161,21 +169,21 @@ sub print_branch_status {
 
     if ( ! $remote ) {
         if ( ! $DoRemoteOnly ) {
-            print "# . $branch is only \e[1mlocal\e[0m\n";
+            print "# . $branch is only @{[ red( 'local' ) ]}\n";
         }
     }
     elsif ( ! ref_exists( "refs/remotes/$remote/$remote_branch" ) ) {
-        print "# ! $branch is tracking \e[1mnon-existent\e[0m remote branch $track\n";
+        print "# ! $branch is tracking @{[ red( 'non-existent' ) ]} remote branch $track\n";
     }
     else {
         my $behind = count_commits( "$branch..$track" );
         my $ahead  = count_commits( "$track..$branch" );
 
         if ( $behind && $ahead ) {
-            print "# X $branch and $track have \e[1mdiverged\e[0m by $ahead and $behind commits\n";
+            print "# X $branch and $track have @{[ red( 'diverged' ) ]} by $ahead and $behind commits\n";
         }
         elsif ( $behind ) {
-            print "# < $branch is \e[1mbehind\e[0m $track by $behind commits\n";
+            print "# < $branch is @{[ red( 'behind' ) ]} $track by $behind commits\n";
             if ( $DoPullme ) {
                 print "\n";
                 print "] git checkout $branch\n";
@@ -185,10 +193,10 @@ sub print_branch_status {
             }
         }
         elsif ( $ahead ) {
-            print "# > $branch is \e[1mahead\e[0m of $track by $ahead commits\n";
+            print "# > $branch is @{[ red( 'ahead' ) ]} of $track by $ahead commits\n";
         }
         else {
-            print "# = $branch is \e[1mcurrent\e[0m with $track\n";
+            print "# = $branch is @{[ red( 'current' ) ]} with $track\n";
         }
     }
 
@@ -243,7 +251,7 @@ sub Run {
 }
 
 sub red {
-    if ( -t STDOUT || $UseColor ) {
+    if ( $UseColor ) {
         return Term::ANSIColor::colored( "@_", 'red' );
     }
     else {
