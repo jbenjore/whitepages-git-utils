@@ -24,6 +24,7 @@ use 5.005;
 use strict;
 use Getopt::Long ();
 use Pod::Usage ();
+use Term::ANSIColor ();
 use Carp ();
 
 Getopt::Long::Configure( 'bundling_override' );
@@ -54,17 +55,17 @@ sub Main {
     }
 
     # Get the current branch
-    my $branch = Run( 'git symbolic-ref HEAD' );
-    chomp $branch;
-    $branch =~ s{^refs/heads/}{};
-    if ( ! $branch ) {
-        die "Not on any branch that I can find!\n";
+    my $branch = current_branch();
+    if ( ! defined $branch ) {
+        print STDERR Term::ANSIColor::colored( 'Not on any branch that I can find!', 'red' ), "\n";
+        exit;
     }
 
     # Get the remote
     my $remote = config( "branch.$branch.remote" );
     if ( ! $remote ) {
-        die qq{Your branch is not tracking a remote branch.  Consider using "git corb"\n};
+        print STDERR Term::ANSIColor::colored( qq{Your branch is not tracking a remote branch.  Consider using "git corb"}, 'red' ), "\n";
+        exit;
     }
 
     my $thing_to_push;
@@ -87,6 +88,15 @@ sub Main {
         push @flags, '-f';
     }
     exec 'git', 'push', @flags, $remote, $thing_to_push;
+}
+
+sub current_branch {
+    my $branch = `git symbolic-ref HEAD`;
+    return undef if $?;
+
+    chomp $branch;
+    $branch =~ s{^refs/heads/}{};
+    return $branch;
 }
 
 sub config {

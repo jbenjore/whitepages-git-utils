@@ -169,21 +169,21 @@ sub print_branch_status {
 
     if ( ! $remote ) {
         if ( ! $DoRemoteOnly ) {
-            print "# . $branch is only @{[ red( 'local' ) ]}\n";
+            print "# . $branch is @{[ Term::ANSIColor::colored( 'only local', 'red' ) ]}\n";
         }
     }
     elsif ( ! ref_exists( "refs/remotes/$remote/$remote_branch" ) ) {
-        print "# ! $branch is tracking @{[ red( 'non-existent' ) ]} remote branch $track\n";
+        print "# ! $branch is tracking @{[ Term::ANSIColor::colored( 'non-existent', 'black on_red' ) ]} remote branch $track\n";
     }
     else {
         my $behind = count_commits( "$branch..$track" );
         my $ahead  = count_commits( "$track..$branch" );
 
         if ( $behind && $ahead ) {
-            print "# X $branch and $track have @{[ red( 'diverged' ) ]} by $ahead and $behind commits\n";
+            print "# X $branch and $track have @{[ Term::ANSIColor::colored( 'diverged', 'black on_red' ) ]} by $ahead and $behind commits\n";
         }
         elsif ( $behind ) {
-            print "# < $branch is @{[ red( 'behind' ) ]} $track by $behind commits\n";
+            print "# < $branch is @{[ Term::ANSIColor::colored( 'behind', 'red' ) ]} $track by $behind commits\n";
             if ( $DoPullme ) {
                 print "\n";
                 print "] git checkout $branch\n";
@@ -193,10 +193,10 @@ sub print_branch_status {
             }
         }
         elsif ( $ahead ) {
-            print "# > $branch is @{[ red( 'ahead' ) ]} of $track by $ahead commits\n";
+            print "# > $branch is @{[ Term::ANSIColor::colored( 'ahead', 'green' ) ]} of $track by $ahead commits\n";
         }
         else {
-            print "# = $branch is @{[ red( 'current' ) ]} with $track\n";
+            print "# = $branch is current with $track\n";
         }
     }
 
