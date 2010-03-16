@@ -47,7 +47,8 @@ sub Main {
     }
 
     # Get the current branch
-    my $branch = Run( 'git symbolic-ref HEAD' );
+    my $branch = `git symbolic-ref HEAD`;
+    exit 1 if $?;
     chomp $branch;
     $branch =~ s{^refs/heads/}{};
     if ( ! $branch ) {
